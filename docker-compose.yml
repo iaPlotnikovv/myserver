@@ -1,0 +1,21 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres
+    restart: always
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      POSTGRES_USER : test
+      POSTGRES_PASSWORD : test
+      POSTGRES_DB : mydb
+  api:
+    build: .
+    ports:
+      - 80:1311
+    environment:
+      - PORT=8080
+      - DATABASE_URL=db
+    depends_on:
+      - db
