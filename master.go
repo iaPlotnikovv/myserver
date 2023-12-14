@@ -18,7 +18,7 @@ const (
 )
 
 // инициализируем соединение с БД
-//var db *sql.DB
+var db *sql.DB
 
 func Init() *sql.DB {
 
