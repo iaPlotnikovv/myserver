@@ -20,7 +20,7 @@ const (
 // инициализируем соединение с БД
 var db *sql.DB
 
-func Init() *sql.DB {
+func Init() {
 
 	var err error
 
@@ -37,7 +37,6 @@ func Init() *sql.DB {
 	if err != nil {
 		fmt.Printf("Ошибка ping, %s", err)
 	}
-	return db
 }
 
 // ошибки:
