@@ -14,5 +14,4 @@ services:
     build: .
     ports:
       - 80:1311
-    depends_on:
-      - db
+    
