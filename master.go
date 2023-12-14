@@ -114,27 +114,36 @@ type JsonResponse struct {
 
 func GetInfo(res http.ResponseWriter, req *http.Request) {
 
-	db := Init()
+	//db := Init()
 
 	printMessage("Getting info...")
 
 	// Get all movies from movies table that don't have comment = "1"
-	rows, err := db.Query("SELECT * FROM test;")
+	rows, err := db.Query("SELECT * FROM test")
 
 	checkErr(err)
 
 	// var response []JsonResponse
 	var info []info_js
 
-	// Foreach movie
-
 	for rows.Next() {
-		var id int
-		var comment string
+		snb := info_js{}
+		err := rows.Scan(&snb.ID, &snb.Comment)
+		if err != nil {
+			fmt.Println(err)
+			http.Error(res, http.StatusText(500), 500)
+			return
+		}
+		info = append(info, snb)
+	}
 
-		err = rows.Scan(&id, &comment)
-
-		info = append(info, info_js{ID: id, Comment: comment})
+	if err = rows.Err(); err != nil {
+		http.Error(res, http.StatusText(500), 500)
+		return
+	}
+	// loop and display the result in the browser
+	for _, snb := range info {
+		fmt.Fprintf(res, "%d %s\n", snb.ID, snb.Comment)
 	}
 
 	var response = JsonResponse{Type: "success", Data: info}
