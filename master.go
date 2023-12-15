@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	host     = "localhost"
+	host     = "postgres"
 	port     = 5432
 	user     = "postgres"
 	password = "test"
@@ -18,9 +18,9 @@ const (
 )
 
 // инициализируем соединение с БД
-var db *sql.DB
+//var db *sql.DB
 
-func Init() {
+func Init() *sql.DB {
 
 	var err error
 
@@ -37,6 +37,7 @@ func Init() {
 	if err != nil {
 		fmt.Printf("Ошибка ping, %s", err)
 	}
+	return db
 }
 
 // ошибки:
@@ -106,14 +107,13 @@ type info_js struct {
 }
 
 type JsonResponse struct {
-	Type    string    `json:"type"`
-	Data    []info_js `json:"data"`
-	Message string    `json:"message"`
+	Type string    `json:"type"`
+	Data []info_js `json:"data"`
 }
 
 func GetInfo(res http.ResponseWriter, req *http.Request) {
 
-	//db := Init()
+	db := Init()
 
 	printMessage("Getting info...")
 
@@ -140,12 +140,11 @@ func GetInfo(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, http.StatusText(500), 500)
 		return
 	}
-	// loop and display the result in the browser
-	for _, snb := range info {
-		fmt.Fprintf(res, "%d %s\n", snb.ID, snb.Comment)
-	}
-
 	var response = JsonResponse{Type: "success", Data: info}
 
 	json.NewEncoder(res).Encode(response)
+	// loop and display the result in the browser
+	for _, snb := range info {
+		fmt.Fprintf(res, "\n_Id_|_comment_\n\n %d  |  %s\n", snb.ID, snb.Comment)
+	}
 }

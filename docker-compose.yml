@@ -4,6 +4,7 @@ services:
   db:
     image: postgres
     restart: always
+    hostname: postgres
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
@@ -14,4 +15,5 @@ services:
     build: .
     ports:
       - 80:1311
-    
+    depends_on:
+      - db  
