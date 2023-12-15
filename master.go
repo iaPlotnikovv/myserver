@@ -117,7 +117,7 @@ func GetInfo(res http.ResponseWriter, req *http.Request) {
 
 	printMessage("Getting info...")
 
-	// Get all movies from movies table that don't have comment = "1"
+	// Get all  from  table
 	rows, err := db.Query("SELECT * FROM test")
 
 	checkErr(err)
@@ -143,6 +143,7 @@ func GetInfo(res http.ResponseWriter, req *http.Request) {
 	var response = JsonResponse{Type: "success", Data: info}
 
 	json.NewEncoder(res).Encode(response)
+
 	// loop and display the result in the browser
 	for _, snb := range info {
 		fmt.Fprintf(res, "\n_Id_|_comment_\n\n %d  |  %s\n", snb.ID, snb.Comment)
