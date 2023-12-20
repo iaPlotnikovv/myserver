@@ -63,7 +63,7 @@ func main() {
 
 	mux.HandleFunc("/plotnikov/db", GetInfo)
 
-	//mux.HandleFunc("/plotnikov/db", PostInfo).Methods("POST")
+	mux.HandleFunc("/plotnikov/db", PostInfo)
 
 	//server
 
@@ -148,4 +148,16 @@ func GetInfo(res http.ResponseWriter, req *http.Request) {
 	for _, snb := range info {
 		fmt.Fprintf(res, "\n_Id_|_comment_\n\n %d  |  %s\n", snb.ID, snb.Comment)
 	}
+}
+
+// POST!
+func PostInfo(res http.ResponseWriter, req *http.Request) {
+
+	db := Init()
+
+	insertDynStmt := `insert into "test"("comment") values($1)`
+
+	_, err := db.Exec(insertDynStmt, "Jack")
+
+	checkErr(err)
 }
