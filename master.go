@@ -63,7 +63,7 @@ func main() {
 
 	mux.HandleFunc("/plotnikov/db", GetInfo)
 
-	mux.HandleFunc("/plotnikov/db", PostInfo)
+	mux.HandleFunc("/plotnikov/db/post", PostInfo)
 
 	//server
 
@@ -145,19 +145,42 @@ func GetInfo(res http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(res).Encode(response)
 
 	// loop and display the result in the browser
+	fmt.Fprintf(res, "\nId | comment")
+	fmt.Fprintf(res, "\n------------\n")
+
 	for _, snb := range info {
-		fmt.Fprintf(res, "\n_Id_|_comment_\n\n %d  |  %s\n", snb.ID, snb.Comment)
+		fmt.Fprintf(res, "%d  |  %s\n\n", snb.ID, snb.Comment)
 	}
 }
 
 // POST!
-func PostInfo(res http.ResponseWriter, req *http.Request) {
+func PostInfo(w http.ResponseWriter, r *http.Request) {
 
-	db := Init()
+	comment := r.FormValue("comment")
 
-	insertDynStmt := `insert into "test"("comment") values($1)`
+	var response = JsonResponse{}
 
-	_, err := db.Exec(insertDynStmt, "Jack")
+	if comment == "" {
+		response = JsonResponse{Type: "error"}
+	} else {
+		db := Init()
+		// dynamic
+		insertDynStmt := `insert into "test"("comment") values($1)`
 
-	checkErr(err)
+		_, err := db.Exec(insertDynStmt, comment)
+
+		checkErr(err)
+
+		printMessage("Inserting comment into DB")
+
+		//var lastInsertID int
+		//err := db.QueryRow("INSERT INTO test (comment) VALUES($1);", comment).Scan(&lastInsertID)
+
+		// check errors
+		//checkErr(err)
+
+		response = JsonResponse{Type: "success"}
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
