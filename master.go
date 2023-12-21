@@ -44,7 +44,7 @@ func Init() *sql.DB {
 
 func checkErr(err error) {
 	if err != nil {
-		fmt.Printf("Ошибка ???, %s", err)
+		fmt.Printf("Ошибка, %s", err)
 		panic(err)
 	}
 }
@@ -63,7 +63,7 @@ func main() {
 
 	mux.HandleFunc("/plotnikov/db", GetInfo)
 
-	mux.HandleFunc("/plotnikov/db/post", PostInfo)
+	mux.HandleFunc("/plotnikov/db_post", PostInfo)
 
 	//server
 
@@ -111,6 +111,7 @@ type JsonResponse struct {
 	Data []info_js `json:"data"`
 }
 
+// Fetch db
 func GetInfo(res http.ResponseWriter, req *http.Request) {
 
 	db := Init()
