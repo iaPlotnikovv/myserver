@@ -245,6 +245,7 @@ func consume() {
 
 	// Calling ConsumePartition. It will open one connection per broker
 	// and share it for all partitions that live on it.
+
 	consumer, err := worker.ConsumePartition(topic, 0, sarama.OffsetOldest)
 	if err != nil {
 		panic(err)
@@ -284,6 +285,8 @@ func consume() {
 				checkErr(err_db)
 
 				printMessage("Inserting comment into DB")
+
+				consumer.Pause()
 
 			case <-sigchan:
 				fmt.Println("Interrupt is detected")
