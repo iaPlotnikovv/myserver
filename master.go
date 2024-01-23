@@ -7,10 +7,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/IBM/sarama"
 	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -52,6 +54,18 @@ func checkErr(err error) {
 	}
 }
 
+// инициализируем соединение с Redis
+
+func InitRed() *redis.Client {
+
+	client := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+	return client
+}
+
 //----------------------------------
 
 func main() {
@@ -64,7 +78,9 @@ func main() {
 	pHandler := Ilia{}
 	mux.Handle("/plotnikov", pHandler)
 
-	mux.HandleFunc("/plotnikov/db", GetInfo)
+	//mux.HandleFunc("/plotnikov/db", showDB)
+
+	mux.HandleFunc("/plotnikov/db", FetchInfo)
 
 	mux.HandleFunc("/plotnikov/db_post", PostInfo)
 
@@ -115,65 +131,132 @@ type JsonResponse struct {
 	Data []info_js `json:"data"`
 }
 
-// Fetch db
-func GetInfo(res http.ResponseWriter, req *http.Request) {
-
-	db := Init()
-
-	printMessage("Getting info...")
-
-	// Get all  from  table
-	rows, err := db.Query("SELECT * FROM test")
-
-	checkErr(err)
-
-	// var response []JsonResponse
-	var info []info_js
-
-	for rows.Next() {
-		snb := info_js{}
-		err := rows.Scan(&snb.ID, &snb.Comment)
-		if err != nil {
-			fmt.Println(err)
-			http.Error(res, http.StatusText(500), 500)
-			return
-		}
-		info = append(info, snb)
-	}
-
-	if err = rows.Err(); err != nil {
-		http.Error(res, http.StatusText(500), 500)
-		return
-	}
-	var response = JsonResponse{Type: "success", Data: info}
-
-	json.NewEncoder(res).Encode(response)
-
-	// loop and display the result in the browser
-	fmt.Fprintf(res, "\nId | comment")
-	fmt.Fprintf(res, "\n------------\n")
-
-	for _, snb := range info {
-		fmt.Fprintf(res, "%d  |  %s\n\n", snb.ID, snb.Comment)
-	}
-}
-
 // POST!
 func PostInfo(w http.ResponseWriter, r *http.Request) {
 
 	comment := r.FormValue("comment")
-	mesg, _ := json.Marshal(comment)
+	mesg := []byte(comment)
 
 	var response = JsonResponse{}
 
 	if comment == "" {
 		response = JsonResponse{Type: "error"}
 	} else {
+
 		PushCommentToQueue("comments", mesg)
-		go consume()
+		//time.Sleep(1 * time.Second)
+		consume()
+
 	}
 
 	json.NewEncoder(w).Encode(response)
+}
+
+// display db
+
+/*
+func showDB(res http.ResponseWriter, req *http.Request) {
+
+		db := Init()
+
+		printMessage("Getting info...")
+
+		// Get all  from  table
+		rows, err := db.Query("SELECT * FROM test")
+
+		checkErr(err)
+
+		// var response []JsonResponse
+		var info []info_js
+
+		for rows.Next() {
+			snb := info_js{}
+			err := rows.Scan(&snb.ID, &snb.Comment)
+			if err != nil {
+				fmt.Println(err)
+				http.Error(res, http.StatusText(500), 500)
+				return
+			}
+			info = append(info, snb)
+		}
+
+		if err = rows.Err(); err != nil {
+			http.Error(res, http.StatusText(500), 500)
+			return
+		}
+		var response = JsonResponse{Type: "success", Data: info}
+
+		json.NewEncoder(res).Encode(response)
+
+		// loop and display the result in the browser
+		fmt.Fprintf(res, "\nId | comment")
+		fmt.Fprintf(res, "\n------------\n")
+
+		for _, snb := range info {
+			fmt.Fprintf(res, "%d  |  %s\n\n", snb.ID, snb.Comment)
+		}
+	}
+*/
+
+func FetchInfo(w http.ResponseWriter, r *http.Request) {
+
+	zapis := r.FormValue("")
+
+	zapros := fmt.Sprintf("SELECT id, comment FROM test WHERE comment='%s'", zapis)
+
+	db := Init()
+
+	var rows *sql.Rows
+	var err error
+
+	if strings.ToLower(zapis) != "" {
+
+		rows, err = db.Query(zapros)
+
+		checkErr(err)
+
+		printMessage("Getting info...")
+
+	} else {
+		rows, err = db.Query("SELECT * FROM test")
+
+		checkErr(err)
+
+		printMessage("This is DataBase...")
+	}
+
+	var info []info_js
+
+	for rows.Next() {
+
+		snb := info_js{}
+
+		err := rows.Scan(&snb.ID, &snb.Comment)
+		if err != nil {
+			fmt.Println(err)
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
+
+		info = append(info, snb)
+	}
+
+	if err = rows.Err(); err != nil {
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+	var response = JsonResponse{Type: "success", Data: info}
+
+	json.NewEncoder(w).Encode(response)
+
+	// loop and display the result in the browser
+	fmt.Fprintf(w, "\nId | comment")
+	fmt.Fprintf(w, "\n------------\n")
+
+	for _, snb := range info {
+		fmt.Fprintf(w, "%d  |  %s\n\n", snb.ID, snb.Comment)
+	}
+
 }
 
 // .................Producer........................
@@ -214,6 +297,7 @@ func PushCommentToQueue(topic string, message []byte) error {
 		return err
 	}
 	fmt.Printf("Message is stored in topic(%s)/partition(%d)/offset(%d)\n", topic, partition, offset)
+
 	return nil
 }
 
@@ -224,6 +308,11 @@ func PushCommentToQueue(topic string, message []byte) error {
 func connectConsumer(brokersUrl []string) (sarama.Consumer, error) {
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
+	config.Consumer.Offsets.AutoCommit.Enable = false
+	//config.Consumer.Offsets.Initial = sarama.OffsetOldest
+	//config.Consumer.Offsets.Retry.Max = 5
+	//config.Consumer.Interceptors =
+
 	// NewConsumer creates a new consumer using the given broker addresses and configuration
 	conn, err := sarama.NewConsumer(brokersUrl, config)
 	if err != nil {
@@ -233,6 +322,10 @@ func connectConsumer(brokersUrl []string) (sarama.Consumer, error) {
 	return conn, nil
 }
 
+var msgCount int
+
+var x int64
+
 func consume() {
 
 	printMessage("Consumer started ")
@@ -240,14 +333,19 @@ func consume() {
 	topic := "comments"
 	worker, err := connectConsumer([]string{"kafka:9092"})
 	if err != nil {
+		fmt.Println("NO CONNECTION CONSUMER")
 		panic(err)
 	}
 
 	// Calling ConsumePartition. It will open one connection per broker
 	// and share it for all partitions that live on it.
 
-	consumer, err := worker.ConsumePartition(topic, 0, sarama.OffsetOldest)
+	consumer, err := worker.ConsumePartition(topic, 0, x)
+
+	defer consumer.Close()
+
 	if err != nil {
+		fmt.Println("TUTSI")
 		panic(err)
 	}
 
@@ -256,14 +354,18 @@ func consume() {
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
 
 	// Count how many message processed
-	msgCount := 0
 
 	// Get signal for finish
 	doneCh := make(chan struct{})
+	//ch := make(chan string)
+
+	//fmt.Println(msgCount)
 
 	go func() {
+
 		for {
 			select {
+
 			case err := <-consumer.Errors():
 
 				fmt.Println(err)
@@ -286,22 +388,31 @@ func consume() {
 
 				printMessage("Inserting comment into DB")
 
-				consumer.Pause()
+				fmt.Println("Processed", msgCount, "messages")
+
+				x = consumer.HighWaterMarkOffset()
+				break
+
+				//<-doneCh
+
+				//consumer.Pause()
 
 			case <-sigchan:
 				fmt.Println("Interrupt is detected")
 				doneCh <- struct{}{}
 			}
+
+			break
+
 		}
+
 	}()
 
 	<-doneCh
-	fmt.Println("Processed", msgCount, "messages")
-
 	if err := worker.Close(); err != nil {
 		panic(err)
 	}
-
+	//time.Sleep(time.Second)
 }
 
 //...........................................
