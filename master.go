@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/IBM/sarama"
@@ -75,14 +74,16 @@ func main() {
 
 	mux.HandleFunc("/", empty)
 
-	pHandler := Ilia{}
-	mux.Handle("/plotnikov", pHandler)
+	pHandler := IliaDB{}
+	POSTHandler := IliaPOST{}
 
-	//mux.HandleFunc("/plotnikov/db", showDB)
+	mux.Handle("/plotnikov", pHandler)
 
 	mux.HandleFunc("/plotnikov/db", FetchInfo)
 
-	mux.HandleFunc("/plotnikov/db_post", PostInfo)
+	mux.Handle("/plotnikov/db_post", POSTHandler)
+
+	mux.HandleFunc("/plotnikov/db_post/", PostInfo)
 
 	//server
 
@@ -99,17 +100,21 @@ func main() {
 
 func empty(res http.ResponseWriter, req *http.Request) {
 
-	data := []byte("Welcome! try /plotnikov!")
+	data := []byte("HELLO WORLD! I'm Ilia!\n Welcome! try /plotnikov!")
 	res.WriteHeader(200)
 	res.Write(data)
 }
 
-type Ilia struct{}
+type IliaDB struct{}
+type IliaPOST struct{}
 
-func (p Ilia) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	data := []byte("HELLO WORLD! I'm Ilia!")
-	res.WriteHeader(200)
-	res.Write(data)
+func (p IliaDB) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+
+	http.ServeFile(res, req, "db.html")
+}
+func (p IliaPOST) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	http.ServeFile(res, req, "post.html")
+
 }
 
 //curl -v -X GET http://localhost:1311/plotnikov
@@ -134,19 +139,21 @@ type JsonResponse struct {
 // POST!
 func PostInfo(w http.ResponseWriter, r *http.Request) {
 
+	//http.ServeFile(w, r, "post.html")
+
 	comment := r.FormValue("comment")
 	mesg := []byte(comment)
 
 	var response = JsonResponse{}
 
-	if comment == "" {
-		response = JsonResponse{Type: "error"}
-	} else {
+	if comment != "" {
 
 		PushCommentToQueue("comments", mesg)
 		//time.Sleep(1 * time.Second)
 		consume()
 
+	} else {
+		response = JsonResponse{Type: "error"}
 	}
 
 	json.NewEncoder(w).Encode(response)
@@ -154,62 +161,18 @@ func PostInfo(w http.ResponseWriter, r *http.Request) {
 
 // display db
 
-/*
-func showDB(res http.ResponseWriter, req *http.Request) {
-
-		db := Init()
-
-		printMessage("Getting info...")
-
-		// Get all  from  table
-		rows, err := db.Query("SELECT * FROM test")
-
-		checkErr(err)
-
-		// var response []JsonResponse
-		var info []info_js
-
-		for rows.Next() {
-			snb := info_js{}
-			err := rows.Scan(&snb.ID, &snb.Comment)
-			if err != nil {
-				fmt.Println(err)
-				http.Error(res, http.StatusText(500), 500)
-				return
-			}
-			info = append(info, snb)
-		}
-
-		if err = rows.Err(); err != nil {
-			http.Error(res, http.StatusText(500), 500)
-			return
-		}
-		var response = JsonResponse{Type: "success", Data: info}
-
-		json.NewEncoder(res).Encode(response)
-
-		// loop and display the result in the browser
-		fmt.Fprintf(res, "\nId | comment")
-		fmt.Fprintf(res, "\n------------\n")
-
-		for _, snb := range info {
-			fmt.Fprintf(res, "%d  |  %s\n\n", snb.ID, snb.Comment)
-		}
-	}
-*/
-
 func FetchInfo(w http.ResponseWriter, r *http.Request) {
 
-	zapis := r.FormValue("")
+	zapis := r.FormValue("comment")
 
-	zapros := fmt.Sprintf("SELECT id, comment FROM test WHERE comment='%s'", zapis)
+	zapros := fmt.Sprintf("SELECT id, comment FROM test WHERE comment LIKE '%s'", zapis)
 
 	db := Init()
 
 	var rows *sql.Rows
 	var err error
 
-	if strings.ToLower(zapis) != "" {
+	if zapis != "" {
 
 		rows, err = db.Query(zapros)
 
@@ -217,12 +180,15 @@ func FetchInfo(w http.ResponseWriter, r *http.Request) {
 
 		printMessage("Getting info...")
 
+		fmt.Fprintf(w, "Search result for %s:\n\n", zapis)
+
 	} else {
 		rows, err = db.Query("SELECT * FROM test")
 
 		checkErr(err)
 
 		printMessage("This is DataBase...")
+		fmt.Fprintf(w, "DATABASE:\n")
 	}
 
 	var info []info_js
@@ -258,6 +224,8 @@ func FetchInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 }
+
+//..................K A F K A.....................
 
 // .................Producer........................
 //
@@ -353,13 +321,8 @@ func consume() {
 
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Count how many message processed
-
 	// Get signal for finish
 	doneCh := make(chan struct{})
-	//ch := make(chan string)
-
-	//fmt.Println(msgCount)
 
 	go func() {
 
@@ -393,10 +356,6 @@ func consume() {
 				x = consumer.HighWaterMarkOffset()
 				break
 
-				//<-doneCh
-
-				//consumer.Pause()
-
 			case <-sigchan:
 				fmt.Println("Interrupt is detected")
 				doneCh <- struct{}{}
@@ -412,7 +371,7 @@ func consume() {
 	if err := worker.Close(); err != nil {
 		panic(err)
 	}
-	//time.Sleep(time.Second)
+
 }
 
 //...........................................

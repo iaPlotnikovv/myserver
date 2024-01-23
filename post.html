@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Ввод данных в базу данных</title>
+    </head>
+    <body>
+        <h2>Ввод данных в базу данных</h2>
+        <form method="POST" action="db_post/">
+            <label>введите данные</label><br>
+            <input type="text" name="comment" /><br><br>
+            <input type="submit" value="Отправить" />
+        </form>
+        <form method="POST" action="db_post">
+            <input type="submit" value="refresh" />
+            
+        </form>
+        <p></p>
+        <form method="POST" action="http://localhost/plotnikov">
+            <input type="submit" value="Перейти на страницу поиска" />
+        </form>
+        <p></p>
+        <form method="POST" action="db">
+            <input type="submit" value="Показать БД" />
+        </form>
+    </body>
+</html>

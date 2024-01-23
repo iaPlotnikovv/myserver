@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Поиск по базе данных</title>
+    </head>
+    <body>
+        <h2>Поиск по базе данных</h2>
+        <form method="POST" action="plotnikov/db">
+            <label>введите искомые данные (при необходимости)</label><br>
+            <input type="text" name="comment" /><br><br>
+            <input type="submit" value="Показать БД" />
+        </form>
+        <p></p>
+        <form method="POST" action="plotnikov/db_post">
+            <input type="submit" value="Переход на страницу 
+            ввода данных" />
+        </form>
+    </body>
+</html>
