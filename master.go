@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/IBM/sarama"
 	_ "github.com/lib/pq"
@@ -59,13 +61,16 @@ func InitRed() *redis.Client {
 
 	client := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
+		Password: "my-password", // password set
+		DB:       0,             // use default DB
 	})
+
 	return client
 }
 
-//----------------------------------
+// ----------------------------------
+type IliaDB struct{}
+type IliaPOST struct{}
 
 func main() {
 
@@ -105,14 +110,12 @@ func empty(res http.ResponseWriter, req *http.Request) {
 	res.Write(data)
 }
 
-type IliaDB struct{}
-type IliaPOST struct{}
-
 func (p IliaDB) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	http.ServeFile(res, req, "db.html")
 }
 func (p IliaPOST) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+
 	http.ServeFile(res, req, "post.html")
 
 }
@@ -163,16 +166,18 @@ func PostInfo(w http.ResponseWriter, r *http.Request) {
 
 func FetchInfo(w http.ResponseWriter, r *http.Request) {
 
+	var rows *sql.Rows
+	var err error
+
 	zapis := r.FormValue("comment")
 
 	zapros := fmt.Sprintf("SELECT id, comment FROM test WHERE comment LIKE '%s'", zapis)
 
-	db := Init()
-
-	var rows *sql.Rows
-	var err error
+	//dataInRedis, err := redClient.Get(ctx, zapis).Result()
 
 	if zapis != "" {
+
+		db := Init()
 
 		rows, err = db.Query(zapros)
 
@@ -183,6 +188,8 @@ func FetchInfo(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Search result for %s:\n\n", zapis)
 
 	} else {
+
+		db := Init()
 		rows, err = db.Query("SELECT * FROM test")
 
 		checkErr(err)
@@ -198,6 +205,7 @@ func FetchInfo(w http.ResponseWriter, r *http.Request) {
 		snb := info_js{}
 
 		err := rows.Scan(&snb.ID, &snb.Comment)
+
 		if err != nil {
 			fmt.Println(err)
 			http.Error(w, http.StatusText(500), 500)
@@ -223,6 +231,80 @@ func FetchInfo(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "%d  |  %s\n\n", snb.ID, snb.Comment)
 	}
 
+}
+
+func cachedme() (*JsonResponse, error) {
+
+	client := InitRed()
+
+	ctx := context.Background()
+
+	cachedComments, err := client.Get(ctx, "test").Bytes()
+
+	response := JsonResponse{}
+
+	if err != nil {
+
+		dbComments, err := FetchFromDB()
+
+		if err != nil {
+			return nil, err
+		}
+		cachedComments, err = json.Marshal(dbComments)
+		if err != nil {
+			return nil, err
+		}
+		err = client.Set(ctx, "test", cachedComments, 3*time.Minute).Err()
+
+		response = JsonResponse{Type: "PostgreSQL", Data: dbComments}
+
+		return &response, err
+	}
+
+	comments := []info_js{}
+
+	err = json.Unmarshal(cachedComments, &comments)
+
+	if err != nil {
+		return nil, err
+	}
+
+	response = JsonResponse{Type: "Redis Cache", Data: comments}
+
+	return &response, nil
+}
+
+func FetchFromDB() ([]info_js, error) {
+
+	db := Init()
+
+	queryString := `select
+                      id,
+                      comment
+                  from test where comment like "%test%"`
+
+	rows, err := db.Query(queryString)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var info []info_js
+
+	for rows.Next() {
+
+		p := info_js{}
+		err = rows.Scan(&p.ID, &p.Comment)
+
+		info = append(info, p)
+
+		if err != nil {
+			return nil, err
+		}
+
+	}
+
+	return info, nil
 }
 
 //..................K A F K A.....................
