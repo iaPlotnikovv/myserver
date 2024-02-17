@@ -427,43 +427,37 @@ func consume() {
 
 	go func() {
 
-		for {
-			select {
+		select {
 
-			case err := <-consumer.Errors():
+		case err := <-consumer.Errors():
 
-				fmt.Println(err)
+			fmt.Println(err)
 
-			case msg := <-consumer.Messages():
+		case msg := <-consumer.Messages():
 
-				msgCount++
+			msgCount++
 
-				fmt.Printf("Received message Count %d: | Topic(%s) | Message(%s) \n", msgCount, string(msg.Topic), string(msg.Value))
+			fmt.Printf("Received message Count %d: | Topic(%s) | Message(%s) \n", msgCount, string(msg.Topic), string(msg.Value))
 
-				cmt := string(msg.Value)
+			cmt := string(msg.Value)
 
-				db := Init()
-				// dynamic
-				insertDynStmt := `insert into "test"("comment") values($1)`
+			db := Init()
+			// dynamic
+			insertDynStmt := `insert into "test"("comment") values($1)`
 
-				_, err_db := db.Exec(insertDynStmt, cmt)
+			_, err_db := db.Exec(insertDynStmt, cmt)
 
-				checkErr(err_db)
+			checkErr(err_db)
 
-				printMessage("Inserting comment into DB")
+			printMessage("Inserting comment into DB")
 
-				fmt.Println("Processed", msgCount, "messages")
+			fmt.Println("Processed", msgCount, "messages")
 
-				x = consumer.HighWaterMarkOffset()
-				break
+			x = consumer.HighWaterMarkOffset()
 
-			case <-sigchan:
-				fmt.Println("Interrupt is detected")
-				doneCh <- struct{}{}
-			}
-
-			break
-
+		case <-sigchan:
+			fmt.Println("Interrupt is detected")
+			doneCh <- struct{}{}
 		}
 
 	}()
