@@ -2,7 +2,7 @@ version: '3.9'
 
 services:
   redis:
-    image: redis:latest
+    image: redis:7.2
     restart: always
     ports:
       - "6379:6379"
@@ -14,14 +14,14 @@ services:
       - REDIS_PORT=6379
       - REDIS_DATABASES=16
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.6.0
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - 22181:2181
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.6.0
     depends_on:
       - zookeeper
     ports:
@@ -39,7 +39,7 @@ services:
     restart: always
     hostname: postgres
     volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./internal/app/init/database/init.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
       POSTGRES_USER : postgres
       POSTGRES_PASSWORD : test

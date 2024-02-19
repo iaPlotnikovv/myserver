@@ -14,13 +14,8 @@ ADD . /serv
 WORKDIR /serv
 ## we run go build to compile the binary
 ## executable of our Go program
-RUN go build -o master .
+RUN go build  ./cmd/main.go
 ## Our start command which kicks off
 ## our newly created binary executable
-CMD ["/serv/master"]
-##создаём БД -таблицу 
-##FROM postgres
-##ENV POSTGRES_USER test
-##ENV POSTGRES_PASSWORD test
-##ENV POSTGRES_DB test
-##ADD CreateDB.sql /docker-entrypoint-initdb.d/
+CMD ["/serv/main"]
+
