@@ -1,4 +1,4 @@
-module example.com/m/v2
+module github.com/iaPlotnikovv/myserver
 
 go 1.21.4
 
